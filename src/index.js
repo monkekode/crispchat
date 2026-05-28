@@ -1,5 +1,5 @@
 import { verifySignature } from './crypto.js';
-import { getAdminHtml } from './admin.js';
+import settingsHtml from './settings.html';
 
 export default {
   async fetch(request, env, ctx) {
@@ -63,11 +63,11 @@ export default {
         adminAuthSet: !!env.ADMIN_PASSWORD
       };
 
-      const html = getAdminHtml({
-        geminiInstructions,
-        pastMessagesLimit,
-        envStatus
-      });
+      // Substitute dynamic settings template tags in settingsHtml
+      const html = settingsHtml
+        .replace("{{GEMINI_INSTRUCTIONS}}", geminiInstructions || "")
+        .replace("{{PAST_MESSAGES_LIMIT}}", String(pastMessagesLimit))
+        .replace("{{ENV_STATUS}}", JSON.stringify(envStatus));
 
       return new Response(html, {
         headers: { "Content-Type": "text/html; charset=utf-8" }

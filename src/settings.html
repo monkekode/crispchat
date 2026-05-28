@@ -1,17 +1,4 @@
-/**
- * Generates the premium HTML, CSS, and JS for the /admin dashboard.
- * @param {Object} data 
- * @param {string} data.geminiInstructions - Stored Gemini instructions
- * @param {number} data.pastMessagesLimit - Stored message context limit
- * @param {Object} data.envStatus - Object indicating which worker variables are configured
- * @returns {string} - Complete HTML page
- */
-export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus }) {
-  // Safe serialization of initial instructions to insert into inline script
-  const safeInstructions = JSON.stringify(geminiInstructions || "");
-  const safeLimit = Number(pastMessagesLimit) || 10;
-
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -271,6 +258,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
+      transition: all 0.2s ease;
     }
 
     .badge-success {
@@ -438,7 +426,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
         </div>
       </div>
       <div style="font-size: 0.8rem; color: var(--text-muted)">
-        Worker Version: 1.0.0
+        Worker Version: 1.1.0
       </div>
     </header>
 
@@ -449,7 +437,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
         
         <div class="form-group">
           <label for="instructions">Gemini Cached System Instructions <span>(Grounding Knowledge Base)</span></label>
-          <textarea id="instructions" placeholder="Enter instructions, operating rules, product details, and knowledge base details here. The AI will strictly follow these instructions to answer customer queries...">${geminiInstructions || ""}</textarea>
+          <textarea id="instructions" placeholder="Enter instructions, operating rules, product details, and knowledge base details here. The AI will strictly follow these instructions to answer customer queries...">{{GEMINI_INSTRUCTIONS}}</textarea>
           <div class="instructions-info">
             Enter all the context the bot needs to answer customer inquiries. Best practice is to provide structured data, guidelines on tone of voice, FAQ lists, or contact protocols. This text is passed as a system developer instruction to the Gemini model.
           </div>
@@ -493,9 +481,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Gemini API Key</span>
             <span class="status-desc">Worker Environment Variable</span>
           </div>
-          <span class="badge ${envStatus.geminiKeySet ? 'badge-success' : 'badge-error'}">
-            ${envStatus.geminiKeySet ? '● Configured' : '○ Missing'}
-          </span>
+          <span id="badge-gemini-key" class="badge">○ Loading</span>
         </div>
 
         <div class="status-item">
@@ -503,9 +489,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Crisp Website ID</span>
             <span class="status-desc">Target Inbox Website ID</span>
           </div>
-          <span class="badge ${envStatus.crispWebsiteIdSet ? 'badge-success' : 'badge-error'}">
-            ${envStatus.crispWebsiteIdSet ? '● Configured' : '○ Missing'}
-          </span>
+          <span id="badge-crisp-id" class="badge">○ Loading</span>
         </div>
 
         <div class="status-item">
@@ -513,9 +497,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Crisp Identifier</span>
             <span class="status-desc">API Plugin Token ID</span>
           </div>
-          <span class="badge ${envStatus.crispIdentifierSet ? 'badge-success' : 'badge-error'}">
-            ${envStatus.crispIdentifierSet ? '● Configured' : '○ Missing'}
-          </span>
+          <span id="badge-crisp-identifier" class="badge">○ Loading</span>
         </div>
 
         <div class="status-item">
@@ -523,9 +505,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Crisp API Key</span>
             <span class="status-desc">API Plugin Secret Key</span>
           </div>
-          <span class="badge ${envStatus.crispKeySet ? 'badge-success' : 'badge-error'}">
-            ${envStatus.crispKeySet ? '● Configured' : '○ Missing'}
-          </span>
+          <span id="badge-crisp-key" class="badge">○ Loading</span>
         </div>
 
         <div class="status-item">
@@ -533,9 +513,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Webhook Sign Secret</span>
             <span class="status-desc">Optional signature verification</span>
           </div>
-          <span class="badge ${envStatus.crispWebhookSecretSet ? 'badge-success' : 'badge-warning'}">
-            ${envStatus.crispWebhookSecretSet ? '● Secure' : '○ Disabled'}
-          </span>
+          <span id="badge-webhook-secret" class="badge">○ Loading</span>
         </div>
 
         <div class="status-item">
@@ -543,9 +521,7 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
             <span class="status-name">Admin Credentials</span>
             <span class="status-desc">Protected by Basic Authentication</span>
           </div>
-          <span class="badge ${envStatus.adminAuthSet ? 'badge-success' : 'badge-warning'}">
-            ${envStatus.adminAuthSet ? '● Configured' : '○ Default Admin'}
-          </span>
+          <span id="badge-admin-auth" class="badge">○ Loading</span>
         </div>
 
       </div>
@@ -567,8 +543,33 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
   </div>
 
   <script>
-    // Initialize standard values
-    document.getElementById('history-limit').value = "${safeLimit}";
+    // Injected Dynamic Values
+    const PAST_MESSAGES_LIMIT = {{PAST_MESSAGES_LIMIT}};
+    const ENV_STATUS = {{ENV_STATUS}};
+
+    // Initialize values on load
+    document.getElementById('history-limit').value = PAST_MESSAGES_LIMIT;
+
+    // Helper to render health status badges
+    const updateBadge = (id, isConfigured, successText = '● Configured', errorText = '○ Missing', optional = false) => {
+      const badge = document.getElementById(id);
+      if (!badge) return;
+      if (isConfigured) {
+        badge.className = 'badge badge-success';
+        badge.textContent = successText;
+      } else {
+        badge.className = optional ? 'badge badge-warning' : 'badge badge-error';
+        badge.textContent = errorText;
+      }
+    };
+
+    // Update status UI from environment bindings
+    updateBadge('badge-gemini-key', ENV_STATUS.geminiKeySet);
+    updateBadge('badge-crisp-id', ENV_STATUS.crispWebsiteIdSet);
+    updateBadge('badge-crisp-identifier', ENV_STATUS.crispIdentifierSet);
+    updateBadge('badge-crisp-key', ENV_STATUS.crispKeySet);
+    updateBadge('badge-webhook-secret', ENV_STATUS.crispWebhookSecretSet, '● Secure', '○ Disabled', true);
+    updateBadge('badge-admin-auth', ENV_STATUS.adminAuthSet, '● Configured', '○ Default Admin', true);
 
     const configForm = document.getElementById('config-form');
     const saveBtn = document.getElementById('save-btn');
@@ -632,5 +633,4 @@ export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus 
     });
   </script>
 </body>
-</html>`;
-}
+</html>

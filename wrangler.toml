@@ -14,3 +14,10 @@ ADMIN_USERNAME = "admin"
 [[kv_namespaces]]
 binding = "CRISP_CHAT_KV"
 id = "PLACEHOLDER_KV_NAMESPACE_ID"
+
+# Custom module rules. Treats `.html` files as text strings when imported
+# using `import html from './settings.html';`
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
