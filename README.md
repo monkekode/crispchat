@@ -1,6 +1,6 @@
 # Crisp Chatbot AI Integration (Powered by Gemini & Cloudflare Workers)
 
-A self-contained, enterprise-grade chatbot system that automatically replies to user messages on **Crisp.chat** using Google's modern **Gemini 2.0 Flash** model. 
+A self-contained, enterprise-grade chatbot system that automatically replies to user messages on **Crisp.chat** using Google's modern **Gemini 2.5 Flash** model. 
 
 It features an admin dashboard served directly by the Cloudflare Worker under `/admin` protected by HTTP Basic Auth. The dashboard allows dynamically setting your chatbot's grounding rules (stored as system instructions in Cloudflare KV) and controlling the conversational memory length.
 
@@ -37,7 +37,7 @@ You will need accounts and credentials for the following platforms:
 ├── wrangler.toml              # Worker bindings, namespaces, and variables configuration
 └── src/
     ├── index.js               # Router, Webhook handling, and Gemini pipeline
-    ├── admin.js               # Premium-styled Glassmorphic Admin HTML template
+    ├── settings.html          # Premium-styled Glassmorphic Admin HTML template
     └── crypto.js              # Native HMAC-SHA256 signature verification helper
 ```
 

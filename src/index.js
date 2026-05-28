@@ -111,6 +111,10 @@ export default {
         await env.CRISP_CHAT_KV.put("GEMINI_INSTRUCTIONS", geminiInstructions || "");
         await env.CRISP_CHAT_KV.put("PAST_MESSAGES_LIMIT", String(pastMessagesLimit || 10));
 
+        // Invalidate Google context cache on instruction update
+        await env.CRISP_CHAT_KV.delete("GEMINI_CACHE_NAME");
+        await env.CRISP_CHAT_KV.delete("GEMINI_CACHE_EXPIRE");
+
         return new Response(JSON.stringify({ status: "ok" }), {
           headers: { "Content-Type": "application/json" }
         });
@@ -177,10 +181,63 @@ export default {
           // Fetch dynamic configuration
           let geminiInstructions = "";
           let pastMessagesLimit = 10;
+          let cacheName = null;
+          let cacheExpire = null;
+
           if (env.CRISP_CHAT_KV) {
             geminiInstructions = (await env.CRISP_CHAT_KV.get("GEMINI_INSTRUCTIONS")) || "";
             const savedLimit = await env.CRISP_CHAT_KV.get("PAST_MESSAGES_LIMIT");
             if (savedLimit) pastMessagesLimit = parseInt(savedLimit, 10);
+            
+            // Read context caching variables
+            cacheName = await env.CRISP_CHAT_KV.get("GEMINI_CACHE_NAME");
+            cacheExpire = await env.CRISP_CHAT_KV.get("GEMINI_CACHE_EXPIRE");
+          }
+
+          // Evaluate if we can use an existing Google context cache
+          let useGoogleCache = false;
+          const nowIso = new Date().toISOString();
+          
+          if (cacheName && cacheExpire && cacheExpire > nowIso) {
+            useGoogleCache = true;
+            console.log(`Using active Google context cache: ${cacheName}`);
+          } else if (geminiInstructions && geminiInstructions.trim() !== "") {
+            // Attempt to create a new Google-side Context Cache
+            console.log("No valid cache found. Requesting new Google-side context cache creation...");
+            try {
+              const createCacheUrl = `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${env.GEMINI_API_KEY}`;
+              const cacheResponse = await fetch(createCacheUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "models/gemini-2.5-flash",
+                  displayName: "crisp_chatbot_instructions",
+                  systemInstruction: {
+                    parts: [{ text: geminiInstructions }]
+                  },
+                  ttl: "1800s" // 30 minutes
+                })
+              });
+
+              if (cacheResponse.ok) {
+                const cacheData = await cacheResponse.json();
+                cacheName = cacheData.name;
+                cacheExpire = cacheData.expireTime;
+
+                if (env.CRISP_CHAT_KV) {
+                  await env.CRISP_CHAT_KV.put("GEMINI_CACHE_NAME", cacheName);
+                  await env.CRISP_CHAT_KV.put("GEMINI_CACHE_EXPIRE", cacheExpire);
+                }
+                useGoogleCache = true;
+                console.log(`Google Context Cache created: ${cacheName} (expires: ${cacheExpire})`);
+              } else {
+                const cacheErrText = await cacheResponse.text();
+                console.warn(`Could not create Google cache (likely size is under 32k token threshold): ${cacheResponse.status} ${cacheErrText}`);
+                console.log("Gracefully falling back to in-line instructions on every request.");
+              }
+            } catch (cacheErr) {
+              console.error("Error attempting to construct Google context cache:", cacheErr.message);
+            }
           }
 
           // Fetch conversation history from Crisp
@@ -242,20 +299,22 @@ export default {
             return;
           }
 
-          // Call Gemini API (gemini-2.0-flash)
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+          // Call Gemini API (gemini-2.5-flash)
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
           
           const geminiPayload = {
             contents: formattedContents
           };
 
-          if (geminiInstructions && geminiInstructions.trim() !== "") {
+          if (useGoogleCache && cacheName) {
+            geminiPayload.cachedContent = cacheName;
+          } else if (geminiInstructions && geminiInstructions.trim() !== "") {
             geminiPayload.systemInstruction = {
               parts: [{ text: geminiInstructions }]
             };
           }
 
-          console.log(`Sending context to Gemini API (messages count: ${formattedContents.length})...`);
+          console.log(`Sending context to Gemini API (messages count: ${formattedContents.length}, cache active: ${useGoogleCache})...`);
           const geminiResponse = await fetch(geminiUrl, {
             method: "POST",
             headers: {
