@@ -15,7 +15,7 @@
     "gemini",
     "chatbot"
   ],
-  "author": "Antigravity",
+  "author": "monkekode",
   "license": "MIT",
   "devDependencies": {
     "wrangler": "^3.57.1"
