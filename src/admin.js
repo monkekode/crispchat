@@ -1,0 +1,636 @@
+/**
+ * Generates the premium HTML, CSS, and JS for the /admin dashboard.
+ * @param {Object} data 
+ * @param {string} data.geminiInstructions - Stored Gemini instructions
+ * @param {number} data.pastMessagesLimit - Stored message context limit
+ * @param {Object} data.envStatus - Object indicating which worker variables are configured
+ * @returns {string} - Complete HTML page
+ */
+export function getAdminHtml({ geminiInstructions, pastMessagesLimit, envStatus }) {
+  // Safe serialization of initial instructions to insert into inline script
+  const safeInstructions = JSON.stringify(geminiInstructions || "");
+  const safeLimit = Number(pastMessagesLimit) || 10;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crisp Chatbot Admin Panel</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient-start: #0a0b10;
+      --bg-gradient-end: #12131c;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.4);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.1);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.1);
+      --error: #ef4444;
+      --error-bg: rgba(239, 68, 68, 0.1);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --glass-bg: rgba(20, 21, 33, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.06);
+      --input-bg: rgba(10, 11, 16, 0.6);
+      --input-border: rgba(255, 255, 255, 0.1);
+      --input-focus: rgba(99, 102, 241, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      top: -100px;
+      right: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
+      bottom: -150px;
+      left: -150px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 850px;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: white;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .logo-title h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #ffffff, #d1d5db);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-title p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Glassmorphism Card Style */
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .glass-card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+    }
+
+    label span {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 0.8rem;
+    }
+
+    /* Style Textarea & Input */
+    textarea, select, input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    textarea:focus, select:focus, input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--input-focus);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 240px;
+      line-height: 1.6;
+    }
+
+    /* Custom scrollbar for instructions */
+    textarea::-webkit-scrollbar {
+      width: 8px;
+    }
+    textarea::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+    }
+    textarea::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+    }
+    textarea::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .instructions-info {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Status Grid */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .status-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .status-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .badge-warning {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .badge-error {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Button Styling with Micro-animations */
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 1rem;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 15px var(--primary-glow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+      );
+      transition: all 0.6s ease;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 10px var(--primary-glow);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(18, 18, 24, 0.95);
+      border-left: 4px solid var(--primary);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transform: translateY(150%);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+    }
+
+    .toast-icon {
+      font-size: 1.2rem;
+    }
+
+    .toast-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* Footer styling */
+    footer {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive Grid Tweaks */
+    @media (max-width: 600px) {
+      .glass-card {
+        padding: 1.5rem 1.25rem;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <header>
+      <div class="logo-container">
+        <div class="logo-badge">🤖</div>
+        <div class="logo-title">
+          <h1>Crisp Chatbot Panel</h1>
+          <p>Gemini AI Integration Engine</p>
+        </div>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-muted)">
+        Worker Version: 1.0.0
+      </div>
+    </header>
+
+    <!-- Configuration Settings -->
+    <div class="glass-card">
+      <h2>⚙️ Bot Configuration</h2>
+      <form id="config-form">
+        
+        <div class="form-group">
+          <label for="instructions">Gemini Cached System Instructions <span>(Grounding Knowledge Base)</span></label>
+          <textarea id="instructions" placeholder="Enter instructions, operating rules, product details, and knowledge base details here. The AI will strictly follow these instructions to answer customer queries...">${geminiInstructions || ""}</textarea>
+          <div class="instructions-info">
+            Enter all the context the bot needs to answer customer inquiries. Best practice is to provide structured data, guidelines on tone of voice, FAQ lists, or contact protocols. This text is passed as a system developer instruction to the Gemini model.
+          </div>
+        </div>
+
+        <div class="form-group" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+          <div>
+            <label for="history-limit">Past Messages Limit <span>(Context Length)</span></label>
+            <select id="history-limit">
+              <option value="1">1 message (Only last message)</option>
+              <option value="3">3 messages</option>
+              <option value="5">5 messages</option>
+              <option value="10">10 messages (Recommended)</option>
+              <option value="15">15 messages</option>
+              <option value="20">20 messages</option>
+              <option value="30">30 messages</option>
+            </select>
+            <div class="instructions-info">
+              The number of past messages in the chat history to fetch and send to Gemini. Larger history provides better context but increases API latency and tokens.
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 2.5rem;">
+          <button type="submit" id="save-btn" class="btn">
+            <div id="btn-spinner" class="spinner"></div>
+            <span id="btn-text">Save Dynamic Configuration</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Secrets & Deployment Health Status -->
+    <div class="glass-card">
+      <h2>🔌 System Integration Health</h2>
+      <div class="status-grid">
+        
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Gemini API Key</span>
+            <span class="status-desc">Worker Environment Variable</span>
+          </div>
+          <span class="badge ${envStatus.geminiKeySet ? 'badge-success' : 'badge-error'}">
+            ${envStatus.geminiKeySet ? '● Configured' : '○ Missing'}
+          </span>
+        </div>
+
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Crisp Website ID</span>
+            <span class="status-desc">Target Inbox Website ID</span>
+          </div>
+          <span class="badge ${envStatus.crispWebsiteIdSet ? 'badge-success' : 'badge-error'}">
+            ${envStatus.crispWebsiteIdSet ? '● Configured' : '○ Missing'}
+          </span>
+        </div>
+
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Crisp Identifier</span>
+            <span class="status-desc">API Plugin Token ID</span>
+          </div>
+          <span class="badge ${envStatus.crispIdentifierSet ? 'badge-success' : 'badge-error'}">
+            ${envStatus.crispIdentifierSet ? '● Configured' : '○ Missing'}
+          </span>
+        </div>
+
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Crisp API Key</span>
+            <span class="status-desc">API Plugin Secret Key</span>
+          </div>
+          <span class="badge ${envStatus.crispKeySet ? 'badge-success' : 'badge-error'}">
+            ${envStatus.crispKeySet ? '● Configured' : '○ Missing'}
+          </span>
+        </div>
+
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Webhook Sign Secret</span>
+            <span class="status-desc">Optional signature verification</span>
+          </div>
+          <span class="badge ${envStatus.crispWebhookSecretSet ? 'badge-success' : 'badge-warning'}">
+            ${envStatus.crispWebhookSecretSet ? '● Secure' : '○ Disabled'}
+          </span>
+        </div>
+
+        <div class="status-item">
+          <div class="status-info">
+            <span class="status-name">Admin Credentials</span>
+            <span class="status-desc">Protected by Basic Authentication</span>
+          </div>
+          <span class="badge ${envStatus.adminAuthSet ? 'badge-success' : 'badge-warning'}">
+            ${envStatus.adminAuthSet ? '● Configured' : '○ Default Admin'}
+          </span>
+        </div>
+
+      </div>
+      <div class="instructions-info" style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem;">
+        💡 **Setup Reminder**: Make sure your Webhook URL in your Crisp dashboard points to: <code style="color: var(--primary)">https://&lt;your-worker-domain&gt;/webhook</code> and has the <code style="color: var(--primary)">message:send</code> event subscribed.
+      </div>
+    </div>
+
+    <footer>
+      Powered by Cloudflare Workers & Gemini AI • Designed by Antigravity
+    </footer>
+
+  </div>
+
+  <!-- Toast Notification element -->
+  <div id="toast" class="toast">
+    <span id="toast-icon" class="toast-icon"></span>
+    <span id="toast-text" class="toast-text"></span>
+  </div>
+
+  <script>
+    // Initialize standard values
+    document.getElementById('history-limit').value = "${safeLimit}";
+
+    const configForm = document.getElementById('config-form');
+    const saveBtn = document.getElementById('save-btn');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const btnText = document.getElementById('btn-text');
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastText = document.getElementById('toast-text');
+
+    function showToast(message, type = 'success') {
+      toastText.textContent = message;
+      if (type === 'success') {
+        toastIcon.textContent = '✅';
+        toast.style.borderLeftColor = 'var(--success)';
+      } else {
+        toastIcon.textContent = '❌';
+        toast.style.borderLeftColor = 'var(--error)';
+      }
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3500);
+    }
+
+    configForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const instructions = document.getElementById('instructions').value;
+      const historyLimit = parseInt(document.getElementById('history-limit').value);
+
+      // UI state updates: Disable form and show spinner
+      saveBtn.disabled = true;
+      btnSpinner.style.display = 'block';
+      btnText.textContent = 'Saving changes...';
+
+      try {
+        const response = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            geminiInstructions: instructions,
+            pastMessagesLimit: historyLimit
+          })
+        });
+
+        if (response.ok) {
+          showToast('Configuration successfully saved to Cloudflare KV!');
+        } else {
+          const errMsg = await response.text();
+          showToast('Failed to save settings: ' + errMsg, 'error');
+        }
+      } catch (err) {
+        showToast('Error updating configuration: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnText.textContent = 'Save Dynamic Configuration';
+      }
+    });
+  </script>
+</body>
+</html>`;
+}

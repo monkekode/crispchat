@@ -1,0 +1,23 @@
+{
+  "name": "crisp-gemini-chat",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker integration for auto-replying to Crisp chat webhooks using Gemini API",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "crisp",
+    "gemini",
+    "chatbot"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.57.1"
+  }
+}
